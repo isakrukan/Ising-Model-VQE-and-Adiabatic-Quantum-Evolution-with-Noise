@@ -3,6 +3,20 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Virtual environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+
+# Test cache
+.pytest_cache/
+
 # C extensions
 *.so
 

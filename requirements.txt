@@ -1,0 +1,9 @@
+# Compatible with standard Windows CPython (not /ucrt64/bin/python).
+qiskit>=2.5.2,<3
+qiskit-aer>=0.17.2,<1
+numpy>=2.1,<3
+scipy>=1.15,<2
+qiskit-algorithms>=0.4.0,<1
+matplotlib>=3.11.0,<4
+pylatexenc>=2.11,<3
+qiskit-ibm-runtime>=0.41.0,<1
