@@ -46,8 +46,7 @@ def print_gate_properties(gate:str, qubits:tuple[int, ...]) -> None:
     error = f"{instruction.error:.6g}"
     print(f"  {gate} {qubits}: duration={duration}, error={error}")
 
-
-if __name__ == "__main__":
+def print_backend_info():
     print(f"Backend: {BACKEND.name} ({type(BACKEND).__name__}, offline snapshot)")
     print(f"Physical qubits: {BACKEND.num_qubits}")
     print(f"Basis gates: {BASIS_GATES}")
@@ -72,3 +71,6 @@ if __name__ == "__main__":
                 print("\nExample two-qubit gate:")
                 print_gate_properties(gate, pair)
                 break
+
+if __name__ == "__main__":
+    print_backend_info()

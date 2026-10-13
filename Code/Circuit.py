@@ -2,7 +2,7 @@ from qiskit.circuit.library import efficient_su2
 from qiskit_aer.primitives import EstimatorV2 as Estimator
 from qiskit_aer.noise import NoiseModel, depolarizing_error, pauli_error, amplitude_damping_error, phase_damping_error, thermal_relaxation_error
 from scipy.optimize import minimize, OptimizeResult
-from qiskit.quantum_info import SparsePauliOp, Statevector
+from qiskit.quantum_info import SparsePauliOp, Statevector, DensityMatrix
 from qiskit.circuit.library import PauliEvolutionGate
 from qiskit_aer import AerSimulator
 from qiskit.synthesis import LieTrotter
@@ -69,7 +69,7 @@ class Circuit:
 
         self._doc = {}
 
-    def run_VQE(self, tol=1e-10, maxiter=10_000, theta0="RANDOM", method="COBYLA", backend=None) -> OptimizeResult:
+    def run_VQE(self, tol=1e-3, maxiter=10_000, theta0="RANDOM", method="COBYLA", backend=None) -> OptimizeResult:
         r"""
         Description: 
             Performs Variational Quantum Eigensolver (VQE) optimization.
@@ -132,6 +132,7 @@ class Circuit:
         if backend is not None:
             # Gets noise from backend
             noise_model = NoiseModel.from_backend(backend)
+            self.noise = True
 
             # Transpiles circuit to gates used by backend
             # (also makes sure the circuit does not use the same amount of qubits as backend)
@@ -147,7 +148,11 @@ class Circuit:
             for error, gates in self.noises.values():
                 noise_model.add_all_qubit_quantum_error(error, gates)
 
-        estimator = Estimator(options={"backend_options": {"noise_model": noise_model}})
+        if self.noise:
+            estimator = Estimator(options={"backend_options": {"noise_model": noise_model}})
+
+        else:
+            estimator = Estimator()
 
         def energy(theta):
             result = estimator.run([(qc, H, theta)]).result()
@@ -183,7 +188,16 @@ class Circuit:
 
         return result
 
-    def run_adiabatic(self, g_initial=2.0, T=50.0, theta_initial="GROUND STATE", steps=2000) -> tuple[float, Statevector]:
+    def run_adiabatic(
+            self, 
+            g_initial=2.0, 
+            T=50.0, 
+            theta_initial="GROUND STATE", 
+            steps=2000, 
+            backend=None, 
+            n_shots=500
+            ) -> tuple[list[DensityMatrix], float]:
+        
         r"""
         Simulates adiabatic evolution from H(g_initial) (e.g. strong horizontal field) to final Hamiltonian.
         Assumes given Hamiltonian is final Hamiltonian.
@@ -196,18 +210,29 @@ class Circuit:
             theta_initial:  Initial angle which prepares the initial state through U(theta) 
                             (defaults to ground state |+^{\otimes n}> of H_initial = -g sum_i X_i)
             steps:          Number of time-evolution steps.
+            backend:        Optional Qiskit backend (e.g. FakeSherbrooke())
+                            providing hardware calibration data for noise simulation.
+                            If None, uses the custom noise model or ideal simulation.
+            n_shots:        Number of simulated trajectories, used when noise is added and 
+                            AerSimulator simulates trajectories
 
         Returns:
             E:              Expected energy from final state.
             psi:            Final state after adiabatic evolution.
         """
 
-        if theta_initial.upper() == "GROUND STATE":
+        if isinstance(theta_initial, str):
+            if theta_initial != "GROUND STATE":
+                raise ValueError("Unknown initial state.")
+
             theta_initial = np.zeros(self.circuit.num_parameters)
             theta_initial[:self.n_qubits] = np.pi / 2
+
         else:
-            if len(theta_initial) != 4*self.n_qubits:
-                raise(ValueError(f"'theta_initial' must be of size 4*n_qubits (from constructor)."))
+            theta_initial = np.asarray(theta_initial, dtype=float)
+
+            if theta_initial.size != self.circuit.num_parameters:
+                raise ValueError("Incorrect number of initial parameters.")
             
         qc = self.circuit.assign_parameters(theta_initial)
         H_final = self.isingModel.Hamiltonian
@@ -220,7 +245,8 @@ class Circuit:
         # Adiabatic evolution
         start_time = time.perf_counter()
         counter = 0
-        print(f"Running adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: 0 seconds", end="\r")
+        print(f"Running adiabatic evolution, dt = {dt}")
+        print(f"Setting up adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: 0 seconds", end="\r")
         for i in range(steps):
             s = (i + 0.5) / steps
 
@@ -237,20 +263,64 @@ class Circuit:
             elapsed_time = current_time - start_time
             counter += 1
 
-            print(f"Running adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: {elapsed_time:.2f} seconds", end="\r")
+            print(f"Setting up adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: {elapsed_time:.2f} seconds", end="\r")
 
         current_time = time.perf_counter()
         elapsed_time = current_time - start_time
 
-        print(f"Running adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: {elapsed_time:.2f} seconds")
+        print(f"Setting up adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: {elapsed_time:.2f} seconds")
 
 
+        if backend is not None:
+            # Gets noise from backend
+            noise_model = NoiseModel.from_backend(backend)
+            self.noise = True
+
+        elif self.noise: # Noise is provided
+
+            noise_model = NoiseModel()  # Construct new noise model and adds noise provided
+
+            for error, gates in self.noises.values():
+                noise_model.add_all_qubit_quantum_error(error, gates)
 
         # Final quantum state and energy
-        psi = Statevector.from_instruction(qc)
-        E = float(np.real(psi.expectation_value(H_final)))
 
-        return E, psi
+        if not self.noise:
+            # rho = DensityMatrix.from_instruction(qc)
+            state = Statevector.from_instruction(qc)
+            E = float(np.real(state.expectation_value(H_final)))
+
+            current_time = time.perf_counter()
+            elapsed_time = current_time - start_time
+            print(f"Finished adiabatic evolution, elapsed time: {elapsed_time:.2f} seconds")
+            return [state], E
+
+        else:
+            # AerSimulator allows for simulating various trajectories 
+            simulator = AerSimulator(method="statevector", noise_model=noise_model)
+
+            # Transpiles circuit to gates used by backend
+            # (also makes sure the circuit does not use the same amount of qubits as backend)
+            qc = transpile(qc, basis_gates=noise_model.basis_gates, optimization_level=1)
+
+            qc.save_statevector(pershot=True) # pershot=True requests a separate statevector for each simulated trajectory
+
+            result = simulator.run(qc, shots=n_shots).result() # Runs n_shots trajectories
+            states = result.data(0)["statevector"] # Gets all the states in |psi> = 1/n_shots sum_k=1^n_shots |psi_k><psi_k|
+
+            E = []
+            print(f"Calculating expectation value for simulated trajectories.")
+
+            for i, state in enumerate(states):
+                E.append(state.expectation_value(H_final))
+                
+            E = np.mean(E)
+
+            current_time = time.perf_counter()
+            elapsed_time = current_time - start_time
+            print(f"Finished adiabatic evolution, elapsed time: {elapsed_time:.2f} seconds")
+            return states, E
+
 
     def transpile(self, basis_gates: list) -> None:
         self.circuit = transpile(self.circuit, basis_gates=basis_gates, optimization_level=1)

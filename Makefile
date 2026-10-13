@@ -16,7 +16,7 @@ endif
 help:
 	@echo "Targets:"
 	@echo "  make setup  Create .venv and install dependencies"
-	@echo "  make run    Run the VQE example (optional ARGS=...)"
+	@echo "  make run    Runs main.py"
 # 	@echo "  make test   Run unit tests"
 	@echo "  make clean  Delete .venv"
 .venv/pyvenv.cfg:
@@ -26,7 +26,7 @@ setup: .venv/pyvenv.cfg
 	"$(VENV_PYTHON)" -m pip install -r requirements.txt
 	@echo "Setup complete. Activation is optional when using make."
 run:
-	"$(VENV_PYTHON)" Code/VQE.py $(ARGS)
+	"$(VENV_PYTHON)" Code/main.py $(ARGS)
 test:
 # 	"$(VENV_PYTHON)" -m unittest discover -s tests -v
 clean:
