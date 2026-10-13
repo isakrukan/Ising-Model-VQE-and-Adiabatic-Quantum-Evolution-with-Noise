@@ -5,7 +5,7 @@ A small project exploring the Variational Quantum Eigensolver (VQE) for spin-½ 
 The Hamiltonian is given by
 
 $$
-H = -\sum_{i<j}J_{ij}Z_iZ_j-\sum_i h_iZ_i-\sum_i g_iX_i,
+H = -\sum_{i\lt j} J_{ij} Z_i Z_j - \sum_i h_i Z_i - \sum_i g_i X_i,
 $$
 
 where $J_{ij}$ describes the spin-spin interactions, while $h_i$ and $g_i$ represent the longitudinal and transverse magnetic fields, respectively.
@@ -51,15 +51,18 @@ $$
 where $H_{\mathrm{final}}$ is the chosen Ising Hamiltonian and $T$ is the total evolution time.
 
 For the main results, $H_{\mathrm{final}}=H(J=1, h=0, g<J)$, whose ground state (for $g\ll J$) is approximately the GHZ state (exact when $g=0$):
+
 $$
   \ket{\mathrm{GHZ}_n} = \frac{1}{\sqrt{2}}(\ket{0}^{\otimes n} + \ket{1}^{\otimes n}) 
   \overset{*}{=} \frac{1}{\sqrt{2}}\begin{pmatrix} 1 \\ 0 \\ . \\ . \\ . \\ 1 \end{pmatrix}.
 $$
 
 The fidelity $F$ between the obtained state $\ket{\psi_{\mathrm{final}}}$ after adiabatic evolution and $\ket{\mathrm{GHZ}_n}$ is calculated easily by the last equality above:
+
 $$
-  F = \frac{1}{2}(|\psi_{\mathrm{final,}0}+ \psi_{\mathrm{final,}-1}|^2),
+F = \frac{1}{2}(|\psi_{\mathrm{final,}0}+ \psi_{\mathrm{final,}-1}|^2),
 $$
+
 where $\psi_{\mathrm{final,}0}$ and $\psi_{\mathrm{final,}-1}$ is the first and last component of the vector representation of $\ket{\psi_{\mathrm{final}}}$, respectively.
 
 
