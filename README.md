@@ -10,13 +10,32 @@ $$
 
 where $J_{ij}$ describes the spin-spin interactions, while $h_i$ and $g_i$ represent the longitudinal and transverse magnetic fields, respectively.
 
-The initial state $|0\rangle^{\otimes n}$ is sent through the parameterized quantum circuit ([Fig. 1](#fig-1)), which applies $U(\vec{\theta})$ to prepare the trial state
+The initial state $\ket{0^{\otimes n}}$ is sent through the parameterized quantum circuit ([Fig. 1](#fig-1)), which applies $U(\vec{\theta})$ to prepare the trial state
 
 $$
-|\psi(\vec{\theta})\rangle=U(\vec{\theta})|0\rangle^{\otimes n}.
+\ket{\psi(\vec{\theta})}=U(\vec{\theta})\ket{0^{\otimes n}}.
 $$
 
-VQE then minimizes the expectation value $E(\vec{\theta})=\langle\psi(\vec{\theta})|H|\psi(\vec{\theta})\rangle$ by iteratively adjusting $\vec{\theta}$ using a classical optimizer.
+VQE then minimizes the expectation value $E(\vec{\theta})=\bra{\psi(\vec{\theta})}H\ket{\psi(\vec{\theta})}$ by iteratively adjusting $\vec{\theta}$ using a classical optimizer.
+
+For example, $\vec{\theta}=\vec{0}$ gives $\ket{\psi(\vec{\theta})}=\ket{0^{\otimes n}}$ and $\vec{\theta} = (\pi/2, ..., \pi/2, 0, ..., 0)$, where the there are $n$ angles equal $\pi/2$, and $2n$ angles equal $0$ ($\theta$ has $4n$ parameters), gives $\ket{\psi(\vec{\theta})}=\ket{+^{\otimes n}}$. 
+
+## Adiabatic quantum computing
+Adiabatic quantum computing is implemented for the Ising-Hamiltonian, preparing a state $\ket{\psi(\vec{\theta})}=\ket{+^{\otimes n}}$, i.e. the ground state of 
+
+$$
+H_{\mathrm{initial}}=-g_{\mathrm{initial}}\sum_i X_i,
+\qquad g_{\mathrm{initial}}>0.
+$$
+
+The system is then evolved under the time-dependent Hamiltonian
+
+$$
+H(s)=(1-s)H_{\mathrm{initial}}+sH_{\mathrm{final}},
+\qquad s=\frac{t}{T},
+$$
+
+where $H_{\mathrm{final}}$ is the chosen Ising Hamiltonian and $T$ is the total evolution time.
 
 <a id="fig-1"></a>
 <p align="center">

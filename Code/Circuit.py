@@ -2,12 +2,16 @@ from qiskit.circuit.library import efficient_su2
 from qiskit_aer.primitives import EstimatorV2 as Estimator
 from qiskit_aer.noise import NoiseModel, depolarizing_error, pauli_error, amplitude_damping_error, phase_damping_error, thermal_relaxation_error
 from scipy.optimize import minimize, OptimizeResult
+from qiskit.quantum_info import SparsePauliOp, Statevector
+from qiskit.circuit.library import PauliEvolutionGate
+from qiskit_aer import AerSimulator
+from qiskit.synthesis import LieTrotter
 from qiskit.circuit import Gate
 from qiskit import transpile
 from qiskit_aer.noise import NoiseModel
 from qiskit_ibm_runtime.fake_provider import FakeSherbrooke
 from qiskit_algorithms.optimizers import SPSA
-from IsingModel import TransverseIsingModel
+from IsingModel import IsingModel
 
 from scipy.sparse.linalg import eigsh
 
@@ -16,9 +20,11 @@ import matplotlib.pyplot as plt
 
 from copy import deepcopy
 
+import time
+
 class Circuit:
 
-    def __init__(self, n_qubits:int, isingModel:TransverseIsingModel, transpile_gates=None, backend=None):
+    def __init__(self, n_qubits:int, isingModel:IsingModel, transpile_gates=None, backend=None):
         r"""
         Constructs a parameterized quantum circuit for VQE simulations
         of a spin-1/2 Ising model.
@@ -34,7 +40,7 @@ class Circuit:
 
         Parameters:
             n_qubits:        Number of qubits (spin sites).
-            isingModel:      TransverseIsingModel containing the Hamiltonian.
+            isingModel:      IsingModel containing the Hamiltonian.
             transpile_gates: Optional list of basis gates for transpilation.
                             If None, the original ansatz is retained.
             backend:         Optional Qiskit backend (e.g. FakeSherbrooke()).
@@ -124,68 +130,24 @@ class Circuit:
         H = self.isingModel.Hamiltonian
 
         if backend is not None:
-            """
-            Checks what basis gates the backend uses, then transpiles
-            and sets the correct error probabilities using qubit 0.
-            """
+            # Gets noise from backend
+            noise_model = NoiseModel.from_backend(backend)
 
-            # Extract native quantum gates (exclude measurement, reset, etc.)
-            basis_gates = []
-            for name in backend.operation_names:
-                if isinstance(backend.target.operation_from_name(name), Gate):
-                    basis_gates.append(name)
+            # Transpiles circuit to gates used by backend
+            # (also makes sure the circuit does not use the same amount of qubits as backend)
+            qc = transpile(self.circuit, basis_gates=noise_model.basis_gates, optimization_level=1)
 
-            # Transpiling without changing the number of qubits
-            qc = transpile(self.circuit, basis_gates=basis_gates, optimization_level=1)
+        elif self.noise or self.noise_model is not None: # Noise is provided
 
-            # Using qubit 0 as a reference for coherence times
-            props = backend.qubit_properties(0)
-            T1 = props.t1
-            T2 = min(props.t2, 2*T1)
-
-            # Creates noise model
-            noise_model = NoiseModel()
-
-            for gate in basis_gates:
-                duration = None
-
-                for info in backend.target[gate].values():
-                    if info is not None and info.duration is not None:
-                        duration = info.duration
-                        break
-
-                # Skip virtual or uncalibrated gates
-                if duration is None or duration == 0:
-                    continue
-
-                # Determine how many qubits the gate acts on
-                n = backend.target.operation_from_name(gate).num_qubits
-
-                # Construct thermal relaxation error
-                error = thermal_relaxation_error(T1, T2, duration)
-
-                for i in range(n - 1):
-                    error = error.tensor(thermal_relaxation_error(T1, T2, duration))
-
-                noise_model.add_all_qubit_quantum_error(error, [gate])
-
-            self._doc.update({
-                "Backend": backend.name,
-                "Reference qubit": 0,
-                "T1": T1,
-                "T2": T2,
-                "Ry gate duration (assumed)": 50e-9,
-                "CX gate duration (assumed)": 300e-9})
-
-        elif self.noise or self.noise_model is not None:
-
-            if self.noise_model is None:
-                self.noise_model = NoiseModel()
+            if self.noise_model is not None: # Complete noise model has been provided
+                noise_model = deepcopy(self.noise_model) # To avoid adding noise on top of already existing noise
+            else:
+                noise_model = NoiseModel()  # Construct new noise model and adds noise provided
 
             for error, gates in self.noises.values():
-                self.noise_model.add_all_qubit_quantum_error(error, gates)
+                noise_model.add_all_qubit_quantum_error(error, gates)
 
-        estimator = Estimator(options={"backend_options": {"noise_model": self.noise_model}})
+        estimator = Estimator(options={"backend_options": {"noise_model": noise_model}})
 
         def energy(theta):
             result = estimator.run([(qc, H, theta)]).result()
@@ -221,6 +183,75 @@ class Circuit:
 
         return result
 
+    def run_adiabatic(self, g_initial=2.0, T=50.0, theta_initial="GROUND STATE", steps=2000) -> tuple[float, Statevector]:
+        r"""
+        Simulates adiabatic evolution from H(g_initial) (e.g. strong horizontal field) to final Hamiltonian.
+        Assumes given Hamiltonian is final Hamiltonian.
+        Make sure theta_initial gives the ground state of initial Hamiltonian.
+        Since the evolution is adiabatic, the final state should be the final Hamiltonian's ground state.
+        
+        Parameters:
+            g_initial:      initial value of g (appearing in - g sum_i X_i). 
+            T:              Total evolution time (in units with hbar=1).
+            theta_initial:  Initial angle which prepares the initial state through U(theta) 
+                            (defaults to ground state |+^{\otimes n}> of H_initial = -g sum_i X_i)
+            steps:          Number of time-evolution steps.
+
+        Returns:
+            E:              Expected energy from final state.
+            psi:            Final state after adiabatic evolution.
+        """
+
+        if theta_initial.upper() == "GROUND STATE":
+            theta_initial = np.zeros(self.circuit.num_parameters)
+            theta_initial[:self.n_qubits] = np.pi / 2
+        else:
+            if len(theta_initial) != 4*self.n_qubits:
+                raise(ValueError(f"'theta_initial' must be of size 4*n_qubits (from constructor)."))
+            
+        qc = self.circuit.assign_parameters(theta_initial)
+        H_final = self.isingModel.Hamiltonian
+
+        # Initial Hamiltonian
+        H_initial = SparsePauliOp.from_sparse_list([("X", [i], -g_initial) for i in range(self.n_qubits)], num_qubits=self.n_qubits)
+
+        dt = T / steps
+
+        # Adiabatic evolution
+        start_time = time.perf_counter()
+        counter = 0
+        print(f"Running adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: 0 seconds", end="\r")
+        for i in range(steps):
+            s = (i + 0.5) / steps
+
+            H = (1 - s) * H_initial + s * H_final
+
+            """
+            e^{-iHt} as first-order product approximation, using
+                e^{t(A+B)} = e^{tA}e^{tB} + O(t^2)
+            """
+            evolution_first_order = PauliEvolutionGate(H, time=dt, synthesis=LieTrotter(reps=1))
+            qc.append(evolution_first_order, range(self.n_qubits)) # range(self.n_qubits): act on all qubits
+
+            current_time = time.perf_counter()
+            elapsed_time = current_time - start_time
+            counter += 1
+
+            print(f"Running adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: {elapsed_time:.2f} seconds", end="\r")
+
+        current_time = time.perf_counter()
+        elapsed_time = current_time - start_time
+
+        print(f"Running adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: {elapsed_time:.2f} seconds")
+
+
+
+        # Final quantum state and energy
+        psi = Statevector.from_instruction(qc)
+        E = float(np.real(psi.expectation_value(H_final)))
+
+        return E, psi
+
     def transpile(self, basis_gates: list) -> None:
         self.circuit = transpile(self.circuit, basis_gates=basis_gates, optimization_level=1)
         
@@ -230,6 +261,7 @@ class Circuit:
 
     def add_noise_model(self, noise_model:NoiseModel) -> None:
         self.noise_model = noise_model 
+        self.noise = True
 
     def set_cx_depolarizing_prop(self, p:float, gate="cx") -> None:
         self.check_probability(p)

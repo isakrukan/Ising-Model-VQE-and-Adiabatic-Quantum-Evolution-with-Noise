@@ -9,7 +9,7 @@ def analyze_Ry_phase_vs_CX_depolarizing_error(N:int, p_ry:list, p_cx:list, D=2, 
     p_ry = np.linspace(p_ry[0], p_ry[1], N)
     p_cx = np.linspace(p_cx[0], p_cx[1], N)
 
-    isingModel = TransverseIsingModel(D, n_qubits, J=J, h=h, g=g)
+    isingModel = IsingModel(D, n_qubits, J=J, h=h, g=g)
     circuit = Circuit(n_qubits, isingModel)
 
     # Exact ground-state energy is independent of noise
@@ -61,7 +61,7 @@ def analyze_Ry_phase_vs_CX_depolarizing_error(N:int, p_ry:list, p_cx:list, D=2, 
 
 
 if __name__ == "__main__":
-    # analyze_Ry_phase_vs_CX_depolarizing_error(20, [0, 0.02], [0, 0.02])
+    analyze_Ry_phase_vs_CX_depolarizing_error(20, [0, 0.02], [0, 0.02])
 
     data = np.load("Data/Ry_phase_vs_CX_depolarizing_D2_N4_J1_h0_g1.npz")
 

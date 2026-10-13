@@ -1,7 +1,7 @@
 from qiskit.quantum_info import SparsePauliOp
 import math
 
-class TransverseIsingModel:
+class IsingModel:
 
     def __init__(self, dimension:int, N:int, J=1.0, h=0.0, g=0.7, shape=None):
         r"""

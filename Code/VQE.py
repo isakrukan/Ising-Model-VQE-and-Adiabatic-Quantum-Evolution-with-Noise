@@ -5,12 +5,12 @@ from parameters import *
 
 if __name__ == "__main__":
 
-    # VQE for transverse Ising model with default parameters and nearest neighbor interactions
+    # VQE for Ising model with default parameters and nearest neighbor interactions
     # Parameters
     D = 2 # Dimension 
     N = 10 # Number of qubits (square lattice)
 
-    isingModel = TransverseIsingModel(D, N)
+    isingModel = IsingModel(D, N)
     circuit = Circuit(n_qubits=N, isingModel=isingModel)
     # circuit.display_circuit()
 
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     print(f"diff = {abs(result.fun - linalg_E0)}")
 
     # Using the parameters of a backend:
-    isingModel = TransverseIsingModel(D, N)
+    isingModel = IsingModel(D, N)
     circuit = Circuit(n_qubits=N, isingModel=isingModel, transpile_gates=BASIS_GATES)
 
 
