@@ -4,7 +4,7 @@ from IsingModel import *
 import numpy as np
 from pathlib import Path
 
-def analyze_Ry_phase_vs_CX_depolarizing_error(N:int, p_ry:list, p_cx:list, D=2, n_qubits=4, J=1, h=0, g=1, save_to="DEFAULT"):
+def analyze_Ry_phase_vs_CX_depolarizing_error(N:int, p_ry:list, p_cx:list, D=2, n_qubits=4, J=1, h=0, g=1, save_to="DEFAULT") -> None:
 
     p_ry = np.linspace(p_ry[0], p_ry[1], N)
     p_cx = np.linspace(p_cx[0], p_cx[1], N)
@@ -51,8 +51,7 @@ def analyze_Ry_phase_vs_CX_depolarizing_error(N:int, p_ry:list, p_cx:list, D=2, 
         p_cx=p_cx,
         error=error,
         E_VQE=E_VQE,
-        E0_linalg=E0_linalg
-    )
+        E0_linalg=E0_linalg)
 
     print(f"Results saved to {filepath}")
 

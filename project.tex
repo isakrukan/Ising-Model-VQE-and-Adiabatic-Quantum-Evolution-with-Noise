@@ -1,0 +1,160 @@
+   %% ****** Start of file apssamp.tex ******
+%%
+%%   This file is part of the APS files in the REVTeX 4 distribution.
+%%   Version 4.0 of REVTeX, August 2001
+%%
+%%   Copyright (c) 2001 The American Physical Society.
+%%
+%%   See the REVTeX 4 README file for restrictions and more information.
+%%
+%% TeX'ing this file requires that you have AMS-LaTeX 2.0 installed
+%% as well as the rest of the prerequisites for REVTeX 4.0
+%%
+%% See the REVTeX 4 README file
+%% It also requires running BibTeX. The commands are as follows:
+%%
+%%  1)  latex apssamp.tex
+%%  2)  bibtex apssamp
+%%  3)  latex apssamp.tex
+%%  4)  latex apssamp.tex
+%%
+%################################## Document class #############################
+% \documentclass[aps,pra,reprint,amsmath,amssymb,twocolumn,preprintnumbers,superscriptaddress,10pt]{revtex4-2}
+\documentclass[aps,prl,reprint,amsmath,amssymb,twocolumn,preprintnumbers,superscriptaddress,10pt]{revtex4-2}
+%\documentclass[aps,prl,twocolumn,showpacs,preprintnumbers,amsmath,amssymb,superscriptaddress,10pt,nofootinbib]{revtex4-1}
+%\documentclass[aps,prl,twocolumn,showpacs,preprintnumbers,amsmath,amssymb,superscriptaddress]{revtex4}
+%\documentclass[twocolumn,showpacs,preprintnumbers,amsmath,amssymb,superscriptaddress]{revtex4}
+%\documentclass[preprint,showpacs,preprintnumbers,amsmath,amssymb,superscriptaddress]{revtex4}
+%\documentclass[preprint,aps]{revtex4}
+%\documentclass[preprint,aps,draft]{revtex4}
+%\documentclass[prb]{revtex4}
+
+
+%################################## Packages ###################################
+%===== Core ===================
+\usepackage[utf8]{inputenc}                                             % Input encoding
+
+%===== Input ==================
+\usepackage{xcolor}                                                     % Colors
+%\usepackage{url}                                                        % Url input
+
+%===== Math ==================
+\usepackage{amsmath,amssymb}                                            % Math
+\usepackage{amsthm}                                                     % Theorem environments
+\usepackage[italicdiff]{physics}                                        % Physics
+\usepackage{dsfont}                                                     % Double stroke math symbols
+%\usepackage{bm}                                                         % Bold math
+%\usepackage{tensor}                                                     % Tensors
+%\usepackage{simplewick}                                                 % Wick contractions
+
+%===== Tables =================
+%\usepackage{dcolumn}                                                    % Align table columns on decimal point
+
+%===== Graphics ===============
+\usepackage{graphicx}                                                   % Include figure files
+\usepackage{tikz}                                                       % Tikz figures
+\usepackage{pgfplots}                                                   % PGF plots
+\pgfplotsset{compat=1.14}
+\usetikzlibrary {arrows.meta}
+
+%===== Hyperref ===============
+\usepackage{hyperref}                                                   % Hyperlinks
+
+\usepackage{xr}
+%################################## Setup ######################################
+\newtheorem*{theorem}{Theorem}
+\newtheorem*{hypothesis}{Hypothesis}
+\bibliographystyle{apsrev4-2}
+
+\makeatletter
+\newcommand{\raisemath}[1]{\mathpalette{\raisem@th{#1}}}
+\newcommand{\raisem@th}[3]{\raisebox{#1}{$#2#3$}}
+\makeatother
+
+
+%################################## Custom commands ############################
+%===== Math core ==============
+\renewcommand*{\vec}[1]{\bm{\mathrm{#1}}}                               % Vector
+\newcommand*{\dvec}[1]{\dot\bm{\mathrm{#1}}}                            % Dot vector
+\newcommand*{\ddvec}[1]{\ddot\bm{\mathrm{#1}}}                          % Double dot vector
+\newcommand*{\uvec}[1]{\hat{\mathrm{#1}}}                               % Unit vector
+\newcommand*{\naturals}{\mathbb{N}}                                     % Set of natural numbers
+\newcommand*{\integers}{\mathbb{Z}}                                     % Set of integers
+\newcommand*{\reals}{\mathbb{R}}                                        % Set of real numbers
+\newcommand*{\complexs}{\mathbb{C}}                                     % Set of complex numbers
+\newcommand*{\lp}{\mathopen{}\left}                                     % Left parenthesis
+\newcommand*{\rp}{\right}                                               % Right parenthesis
+\newcommand*{\hc}{\text{H.c.}}                                          % Hermitian conjugate
+\newcommand*{\identity}{\mathds{1}}                                     % Identity operator
+\newcommand{\tri}{\text{tri}}
+\newcommand{\sinc}{\text{sinc}}
+\newcommand{\sgn}{\text{sgn}}
+\newcommand{\vek}[1]{\boldsymbol{\mathbf{#1}}}
+\newcommand{\vekh}[1]{\hat{{\boldsymbol{\mathbf{#1}}}}}
+
+%===== Quantum ================
+\renewcommand{\bra}[1]{\big\langle #1 \big|}
+\renewcommand{\ket}[1]{\big| #1 \big\rangle}
+
+\newcommand*{\smallket}[1]{| #1 \rangle}                        % Ket
+\newcommand*{\smallbra}[1]{\langle #1 |}                        % Bra
+
+\renewcommand*{\braket}[2]{\left\langle #1 \middle| #2 \right\rangle}   % Braket
+\newcommand*{\ketbrasub}[3]{\ket{#1}_{#2}\hspace{-2.5pt}\bra{#3}}       % Ketbra with subscript
+\newcommand*{\exv}[1]{\left\langle #1 \right\rangle}                    % Expectation value
+\newcommand*{\qexv}[2]{\bra{#1} #2 \ket{#1}}                            % Expectation value for quantum state
+\newcommand*{\qexvsub}[3]{\tensor[_{#3}]{\bra{#1}}{} #2 \ket{#1}_{#3}}  % Expectation value for quantum state with subscript
+\newcommand*{\qop}[1]{\ket{#1} \bra{#1}}                                % Outer product
+\newcommand*{\norder}[1]{:\hspace{1pt}\mathrel{#1}\hspace{1pt}:}        % Normal order
+\newcommand*{\hilbertspace}{\mathcal{H}}                                % Hilbert space
+\newcommand*{\denops}[1]{\mathcal{P}\qty(#1)}                           % Set of density operators
+
+%===== Separators =============
+\newcommand*{\tbuff}{\mathchoice{\quad}{\>}{\>}{\>}}                    % Separator after ;
+\newcommand*{\kbuff}{\:}                                                % Separator inside kets
+\newcommand*{\eqbuff}{\hspace{1.2em}}                                   % Separator for + under = in align
+
+%===== Reference templates ====
+\newcommand*{\supplementary}{Supplemental Material}                     % Supplementary section reference
+\newcommand*{\fref}[1]{Fig.~\ref{#1}}                                   % Figure reference
+\newcommand*{\tref}[1]{Tab.~\ref{#1}}                                   % Table reference
+\newcommand*{\aref}[1]{App.~\ref{#1}}                                   % Appendix reference
+\newcommand*{\thref}[1]{Theorem~\ref{#1}}                               % Theorem reference
+\newcommand*{\regi}{\text{I}} % Label region to the left
+\newcommand*{\regii}{\text{II}} % Label region right
+
+%################################## Document info ##############################
+\begin{document}
+
+%===== Preprint ===============
+%\preprint{APS/123-QED}
+
+%===== Title ==================
+%% Force line breaks with \\
+\title{Transverse-Ising model psuedo-quantum computing using Qiskit}
+
+%===== Authors ================
+\author{Isak Cecil Onsager Rukan}
+% \affiliation{Department of Physics, University of Oslo, NO-0316 Oslo, Norway}
+
+
+
+%===== Date ===================
+\date{\today}
+
+%===== Abstract ===============
+\begin{abstract}
+    Short project implementing adiabatic quantum computing and variational quantum eigensolver using IBM's Qiskit by purely classical computation, using the transverse-field Ising model Hamiltonian.
+\end{abstract}
+
+%===== Keywords ===============
+%% Use showkeys class option if keyword display desired
+%\keywords{single photons, causality, photon localization, single photon generation}
+
+%===== Maketitle ==============
+\maketitle
+
+
+
+\bibliography{references}
+\end{document}

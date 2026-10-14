@@ -195,7 +195,7 @@ class Circuit:
             theta_initial="GROUND STATE", 
             steps=2000, 
             backend=None, 
-            n_shots=500
+            n_shots=50
             ) -> tuple[list[DensityMatrix], float]:
         
         r"""

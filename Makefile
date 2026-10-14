@@ -13,21 +13,24 @@ endif
 .DEFAULT_GOAL := help
 .PHONY: help setup run test clean
 
+
+ARGS1 = analyze_AQC_fidelity "res=5" "T_range=[10,40]" "steps_range=[100,600]" "g=0.01"
+
 help:
 	@echo "Targets:"
 	@echo "  make setup  Create .venv and install dependencies"
-	@echo "  make run    Runs main.py"
+	@echo "  make run    Runs main.py with default command-line arguments"
 # 	@echo "  make test   Run unit tests"
 	@echo "  make clean  Delete .venv"
-.venv/pyvenv.cfg:
+.PHONY: setup run clean
+
+setup:
 	$(PYTHON) -m venv .venv
-setup: .venv/pyvenv.cfg
-	"$(VENV_PYTHON)" -m pip install --upgrade pip
-	"$(VENV_PYTHON)" -m pip install -r requirements.txt
-	@echo "Setup complete. Activation is optional when using make."
+	"$(VENV)" -m pip install -r requirements.txt
+
 run:
-	"$(VENV_PYTHON)" Code/main.py $(ARGS)
-test:
-# 	"$(VENV_PYTHON)" -m unittest discover -s tests -v
+	"$(VENV)" Code/main.py $(ARGS1)
+	"$(VENV)" Code/main.py $(ARGS1) "backend=BACKEND" "n_shots=30"
+
 clean:
 	$(PYTHON) -c "import shutil; shutil.rmtree('.venv', ignore_errors=True)"
