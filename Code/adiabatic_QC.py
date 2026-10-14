@@ -25,7 +25,7 @@ def analyze_AQC_fidelity(
 
     fidelities = np.zeros((res, res))
     T_range = np.linspace(T_range[0], T_range[1], res)
-    steps_range = np.linspace(steps_range[0], steps_range[1], res)
+    steps_range = np.linspace(steps_range[0], steps_range[1], res, dtype=int)
 
     print(f"Beginning fidelity analysis")
     start_time = time.perf_counter()

@@ -14,7 +14,7 @@ endif
 .PHONY: help setup run test clean
 
 
-ARGS1 = analyze_AQC_fidelity "res=5" "T_range=[10,40]" "steps_range=[100,600]" "g=0.01"
+ARGS1 = analyze_AQC_fidelity "res=5" "T_range=[10,40]" "steps_range=[100,600]" "g=[0.01, 1]"
 
 help:
 	@echo "Targets:"
@@ -26,11 +26,11 @@ help:
 
 setup:
 	$(PYTHON) -m venv .venv
-	"$(VENV)" -m pip install -r requirements.txt
+	"$(VENV_PYTHON)" -m pip install -r requirements.txt
 
 run:
-	"$(VENV)" Code/main.py $(ARGS1)
-	"$(VENV)" Code/main.py $(ARGS1) "backend=BACKEND" "n_shots=30"
+	"$(VENV_PYTHON)" Code/main.py $(ARGS1)
+	"$(VENV_PYTHON)" Code/main.py $(ARGS1) "backend=BACKEND" "n_shots=30"
 
 clean:
 	$(PYTHON) -c "import shutil; shutil.rmtree('.venv', ignore_errors=True)"
