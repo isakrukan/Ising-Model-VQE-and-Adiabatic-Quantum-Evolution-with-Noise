@@ -53,8 +53,16 @@ where $H_{\mathrm{final}}$ is the chosen Ising Hamiltonian and $T$ is the total 
 For the main results, $H_{\mathrm{final}}=H(J=1, h=0, g<J)$, whose ground state (for $g\ll J$) is approximately the GHZ state (exact when $g=0$):
 
 $$
-  \ket{\mathrm{GHZ}_n} = \frac{1}{\sqrt{2}}(\ket{0}^{\otimes n} + \ket{1}^{\otimes n}) 
-  \overset{*}{=} \frac{1}{\sqrt{2}}\begin{pmatrix} 1 \\ 0 \\ . \\ . \\ . \\ 1 \end{pmatrix}.
+\ket{\mathrm{GHZ}_n}
+= \frac{1}{\sqrt{2}}\left(\ket{0}^{\otimes n}+\ket{1}^{\otimes n}\right)
+= \frac{1}{\sqrt{2}}
+\begin{pmatrix} 
+1 \\ 
+0 \\ 
+\vdots \\
+0 \\
+1 
+\end{pmatrix}.
 $$
 
 The fidelity $F$ between the obtained state $\ket{\psi_{\mathrm{final}}}$ after adiabatic evolution and $\ket{\mathrm{GHZ}_n}$ is calculated easily by the last equality above:
