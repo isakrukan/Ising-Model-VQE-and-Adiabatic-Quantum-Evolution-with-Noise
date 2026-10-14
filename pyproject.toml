@@ -1,0 +1,30 @@
+# Tool configuration for the Ising VQE / adiabatic quantum computing project.
+#
+# This repository is a set of analysis scripts rather than an installable
+# distribution: the modules in Code/ import each other by bare module name
+# (e.g. "from Circuit import *"), which only resolves while Code/ itself is on
+# sys.path - that is, when running from inside the repository, as the README and
+# the Makefile do. Turning it into a package would mean renaming the directory
+# and rewriting every import, which is not worth the churn here, so
+# pyproject.toml carries the tool configuration only.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Code/ is not an importable package; putting it on sys.path lets the tests use
+# the same bare imports as the analysis modules.
+pythonpath = ["Code"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 140
+target-version = "py310"
+
+[tool.ruff.lint]
+# Bug-catching rules only: pyflakes (F) plus syntax errors (E9). The analysis
+# scripts use a compact, tightly-columned style, and reflowing them is not the
+# point of a lint gate.
+select = ["F", "E9"]
+
+[tool.ruff.lint.per-file-ignores]
+# Code/ deliberately uses "from X import *" for its own sibling modules.
+"Code/*.py" = ["F403", "F405"]

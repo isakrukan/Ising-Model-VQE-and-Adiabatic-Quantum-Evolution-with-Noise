@@ -1,10 +1,38 @@
-from Circuit import * 
-from IsingModel import * 
+from Circuit import *
+from IsingModel import *
+
+from analysis import resolve_output_dir
 
 import numpy as np
 from pathlib import Path
 
-def analyze_Ry_phase_vs_CX_depolarizing_error(N:int, p_ry:list, p_cx:list, D=2, n_qubits=4, J=1, h=0, g=1, save_to="DEFAULT") -> None:
+import matplotlib.pyplot as plt
+
+
+def analyze_Ry_phase_vs_CX_depolarizing_error(N: int, p_ry: list, p_cx: list, D=2, n_qubits=4, J=1, h=0, g=1, save_to="DEFAULT") -> Path:
+    r"""
+    Scans the VQE ground-state energy error over a grid of RY phase-flip and CX
+    depolarizing probabilities, and saves the result.
+
+    Parameters:
+        N:        Number of grid points along each axis.
+        p_ry:     [min, max] RY phase-flip probability.
+        p_cx:     [min, max] CX depolarizing probability.
+        D:        Dimension (1 or 2).
+        n_qubits: Number of qubits (spin sites).
+        J, h, g:  Coupling, longitudinal and transverse field.
+        save_to:  Output directory. "DEFAULT" (or None) means the repository's
+                  Data/ directory, resolved independently of the current working
+                  directory.
+
+    Returns:
+        The path of the written .npz file.
+    """
+    if N < 1:
+        raise ValueError("N must be a positive integer.")
+
+    if len(p_ry) != 2 or len(p_cx) != 2:
+        raise ValueError("p_ry and p_cx must be [start, stop] pairs.")
 
     p_ry = np.linspace(p_ry[0], p_ry[1], N)
     p_cx = np.linspace(p_cx[0], p_cx[1], N)
@@ -35,11 +63,8 @@ def analyze_Ry_phase_vs_CX_depolarizing_error(N:int, p_ry:list, p_cx:list, D=2, 
             print(f"Running analyze_Ry_phase_vs_CX_depolarizing_error, {counter/N**2*100:.2f}% complete", end="\r")
 
     print(f"Running analyze_Ry_phase_vs_CX_depolarizing_error, {counter/N**2*100:.2f}% complete")
-    # Default output directory
-    if save_to == "DEFAULT":
-        save_to = "Data"
 
-    folder = Path(save_to)
+    folder = resolve_output_dir(save_to)
     folder.mkdir(parents=True, exist_ok=True)
 
     filename = f"Ry_phase_vs_CX_depolarizing_D{D}_N{n_qubits}_J{J}_h{h}_g{g}.npz"
@@ -55,14 +80,13 @@ def analyze_Ry_phase_vs_CX_depolarizing_error(N:int, p_ry:list, p_cx:list, D=2, 
 
     print(f"Results saved to {filepath}")
 
-
-    
+    return filepath
 
 
 if __name__ == "__main__":
     analyze_Ry_phase_vs_CX_depolarizing_error(20, [0, 0.02], [0, 0.02])
 
-    data = np.load("Data/Ry_phase_vs_CX_depolarizing_D2_N4_J1_h0_g1.npz")
+    data = np.load(resolve_output_dir() / "Ry_phase_vs_CX_depolarizing_D2_N4_J1_h0_g1.npz")
 
     p_ry = data["p_ry"]
     p_cx = data["p_cx"]
