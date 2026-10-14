@@ -10,6 +10,9 @@ $$
 
 where $J_{ij}$ describes the spin-spin interactions, while $h_i$ and $g_i$ represent the longitudinal and transverse magnetic fields, respectively.
 
+## Lattice
+Each spin site is one qubit. In two dimensions the lattice is given by `shape=(rows, cols)`; if no shape is passed, the most square-like factorisation of $N$ is used ($N=9 \rightarrow 3\times3$, $N=10 \rightarrow 2\times5$, and a prime $N$ becomes the $1\times N$ chain). Boundaries are open: there is no periodic wrapping.
+
 The initial state $\ket{0}^{\otimes n}$ is sent through the parameterized quantum circuit ([Fig. 1](#fig-1)), which applies $U(\vec{\theta})$ to prepare the trial state
 
 $$
@@ -158,13 +161,15 @@ python -m pip install -r requirements.txt
 
 ## Run
 
-*Code/main.py* runs the necessary scripts to create all figures and data (saved to Figs/ and Data/, respectively).
-
-With the environment activated:
+*Code/main.py* runs one analysis per invocation. Each analysis is a subcommand followed by its keyword arguments:
 
 ```bash
-python Code/main.py
+python Code/main.py analyze_AQC_fidelity "res=5" "T_range=[10,40]" "steps_range=[100,600]"
 ```
+
+The available commands are `analyze_AQC_fidelity`, `analyze_Ry_phase_vs_CX_depolarizing_error` and `compare_AQC_vs_VQE`. `python Code/main.py --help` lists the commands and the options each one accepts, and `--list` prints just the command names. Values are parsed with `ast.literal_eval`, so numbers, lists and tuples all work; the special value `BACKEND` selects the FakeSherbrooke noise model, e.g. `"backend=BACKEND"`. An unknown command, an unknown option or an unparsable value is reported with a non-zero exit code.
+
+The other analyses are run through their own modules, for example `python Code/adiabatic_QC.py`. Output is written to *Figs/* and *Data/*; with the default output directory, that location is resolved against the repository root, so the scripts can be launched from anywhere.
 
 Or, with GNU Make (no activation needed):
 
@@ -173,8 +178,18 @@ make run
 make test
 ```
 
+## Testing
+
+The test suite is offline and does not need a quantum backend, only the packages in `requirements-dev.txt`:
+
+```bash
+make dev     # installs pytest and ruff into .venv
+make test    # or: .venv/bin/python -m pytest
+make lint    # or: .venv/bin/python -m ruff check .
+```
+
 ## Run time and memory considerations
-Since all simulations are run on a classical computer, certain simulations may take a considerable amount of time. For example, running *main.py* on a windows computer took ... seconds.
+Since all simulations are run on a classical computer, certain simulations may take a considerable amount of time. `make run` uses a deliberately small grid so it can serve as a smoke test; the default arguments of `analyze_AQC_fidelity` sweep a $100\times100$ grid of adiabatic evolutions and take far longer, so pass a smaller `"res=..."` while experimenting.
 
 ### State-vector memory
 

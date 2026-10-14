@@ -2,29 +2,33 @@ from qiskit.circuit.library import efficient_su2
 from qiskit_aer.primitives import EstimatorV2 as Estimator
 from qiskit_aer.noise import NoiseModel, depolarizing_error, pauli_error, amplitude_damping_error, phase_damping_error, thermal_relaxation_error
 from scipy.optimize import minimize, OptimizeResult
-from qiskit.quantum_info import SparsePauliOp, Statevector, DensityMatrix
+from qiskit.quantum_info import SparsePauliOp, Statevector
 from qiskit.circuit.library import PauliEvolutionGate
 from qiskit_aer import AerSimulator
 from qiskit.synthesis import LieTrotter
-from qiskit.circuit import Gate
 from qiskit import transpile
-from qiskit_aer.noise import NoiseModel
-from qiskit_ibm_runtime.fake_provider import FakeSherbrooke
 from qiskit_algorithms.optimizers import SPSA
 from IsingModel import IsingModel
 
 from scipy.sparse.linalg import eigsh
 
-import numpy as np 
+import numpy as np
 import matplotlib.pyplot as plt
 
 from copy import deepcopy
+from pathlib import Path
 
 import time
 
+#: Hilbert spaces up to this dimension are diagonalised densely (exact and
+#: deterministic); larger ones use a sparse Lanczos solve. 2^10 = 1024 keeps the
+#: dense matrix at ~16 MB in complex double precision.
+EXACT_DIAGONALIZATION_LIMIT = 1024
+
+
 class Circuit:
 
-    def __init__(self, n_qubits:int, isingModel:IsingModel, transpile_gates=None, backend=None):
+    def __init__(self, n_qubits: int, isingModel: IsingModel, transpile_gates=None, backend=None):
         r"""
         Constructs a parameterized quantum circuit for VQE simulations
         of a spin-1/2 Ising model.
@@ -50,7 +54,7 @@ class Circuit:
 
         if n_qubits != isingModel.N:
             raise ValueError("Number of qubits must match number of spin sites.")
-        
+
         self.n_qubits = n_qubits
         self.circuit = efficient_su2(n_qubits, reps=1)
 
@@ -59,19 +63,50 @@ class Circuit:
         if transpile_gates is not None:
             self.circuit = transpile(self.circuit, basis_gates=transpile_gates, optimization_level=1)
 
-        self.backend = backend
         self.isingModel = isingModel
-        
-        self.noise = False 
+
+        self.noise = False
         self.noise_model = None
         # self.cx_depolarizing = False
-        self.noises = {} # Dict of all noises
+        self.noises = {}  # Dict of all noises
 
         self._doc = {}
 
-    def run_VQE(self, tol=1e-3, maxiter=10_000, theta0="RANDOM", method="COBYLA", backend=None) -> OptimizeResult:
+    def _resolve_noise_model(self, backend=None) -> NoiseModel | None:
         r"""
-        Description: 
+        Noise model to simulate with, or None for an ideal (noiseless) run.
+
+        Precedence, matching the historical behaviour of ``run_VQE``:
+
+        1. an explicit ``backend`` (calibration-derived noise),
+        2. a complete model supplied through ``add_noise_model``,
+        3. the individual errors registered by the ``set_*_prop`` methods,
+        4. no noise.
+
+        Returns the model and updates ``self.noise`` accordingly.
+        """
+        if backend is not None:
+            self.noise = True
+            return NoiseModel.from_backend(backend)
+
+        if self.noise_model is not None:
+            self.noise = True
+            # deepcopy to avoid adding noise on top of noise in a later call
+            return deepcopy(self.noise_model)
+
+        if not self.noise:
+            return None
+
+        noise_model = NoiseModel()
+
+        for error, gates in self.noises.values():
+            noise_model.add_all_qubit_quantum_error(error, gates)
+
+        return noise_model
+
+    def run_VQE(self, tol=1e-3, maxiter=10_000, theta0="RANDOM", method="COBYLA", backend=None, seed=42) -> OptimizeResult:
+        r"""
+        Description:
             Performs Variational Quantum Eigensolver (VQE) optimization.
 
             Starting from |psi(theta)> = U(theta)|0>^{\otimes n}, evaluates
@@ -96,59 +131,64 @@ class Circuit:
                 approximations to the objective function.
                 Not guaranteed to find the global minimum.
 
+            trust-constr (SciPy):
+                Trust-region interior-point method for constrained problems.
+
             SPSA (Qiskit Algorithms):
                 Stochastic gradient-based optimizer, particularly useful
-                for noisy objective functions. Not yet implemented.
+                for noisy objective functions.
 
         Parameters:
             tol:        Optimization tolerance (COBYLA or trust-constr only).
             maxiter:    Maximum function evaluations for COBYLA and trust-constr,
                         maximum iterations for SPSA.
-            theta0:     Initial variational parameters, or "RANDOM".
+            theta0:     Initial variational parameters (anything array-like), or
+                        "RANDOM" for uniform random angles in [-pi, pi].
             method:     Optimization method ("COBYLA", "trust-constr" or "SPSA").
             backend:    Optional Qiskit backend (e.g. FakeSherbrooke())
                         providing hardware calibration data for noise simulation.
                         If None, uses the custom noise model or ideal simulation.
+            seed:       Seed for the random initial parameters (used only when
+                        theta0="RANDOM"), so runs are reproducible.
 
         Returns:
             scipy.optimize.OptimizeResult containing the optimized
             parameters, energy, and convergence information.
-    """
+        """
+        if isinstance(theta0, str):
+            if theta0.upper() != "RANDOM":
+                raise ValueError(f"Unknown initial parameters {theta0!r}; expected an array-like or \"RANDOM\".")
 
-        if theta0 == "RANDOM":
-            rng = np.random.default_rng(42)
+            rng = np.random.default_rng(seed)
             theta0 = rng.uniform(-np.pi, np.pi, self.circuit.num_parameters)
-        elif np.size(theta0) != self.circuit.num_parameters:
-                raise(ValueError(f"Initial angle theta0 is not the correct size {np.size(theta0)}/{self.circuit.num_parameters}"))
-        
+
+        else:
+            # np.asarray: a numpy array used to fall through to the string
+            # comparison below and raise "truth value of an array ... is
+            # ambiguous", even though array-like theta0 is the documented API.
+            theta0 = np.asarray(theta0, dtype=float).reshape(-1)
+
+            if theta0.size != self.circuit.num_parameters:
+                raise ValueError(f"Initial angle theta0 is not the correct size {theta0.size}/{self.circuit.num_parameters}")
+
+        qc = self.circuit
+        H = self.isingModel.Hamiltonian
 
         # Use provided backend, or the default backend from __init__
         if backend is None:
             backend = self.backend
 
-        qc = self.circuit
-        H = self.isingModel.Hamiltonian
+        noise_model = self._resolve_noise_model(backend)
 
         if backend is not None:
-            # Gets noise from backend
-            noise_model = NoiseModel.from_backend(backend)
-            self.noise = True
+            # _resolve_noise_model() always returns a model for an explicit backend
+            assert noise_model is not None
 
             # Transpiles circuit to gates used by backend
             # (also makes sure the circuit does not use the same amount of qubits as backend)
             qc = transpile(self.circuit, basis_gates=noise_model.basis_gates, optimization_level=1)
 
-        elif self.noise or self.noise_model is not None: # Noise is provided
-
-            if self.noise_model is not None: # Complete noise model has been provided
-                noise_model = deepcopy(self.noise_model) # To avoid adding noise on top of already existing noise
-            else:
-                noise_model = NoiseModel()  # Construct new noise model and adds noise provided
-
-            for error, gates in self.noises.values():
-                noise_model.add_all_qubit_quantum_error(error, gates)
-
-        if self.noise:
+        if noise_model is not None:
             estimator = Estimator(options={"backend_options": {"noise_model": noise_model}})
 
         else:
@@ -189,37 +229,44 @@ class Circuit:
         return result
 
     def run_adiabatic(
-            self, 
-            g_initial=2.0, 
-            T=50.0, 
-            theta_initial="GROUND STATE", 
-            steps=2000, 
-            backend=None, 
+            self,
+            g_initial=2.0,
+            T=50.0,
+            theta_initial="GROUND STATE",
+            steps=2000,
+            backend=None,
             n_shots=50
-            ) -> tuple[list[DensityMatrix], float]:
-        
+            ) -> tuple[list[Statevector], float]:
+
         r"""
         Simulates adiabatic evolution from H(g_initial) (e.g. strong horizontal field) to final Hamiltonian.
         Assumes given Hamiltonian is final Hamiltonian.
         Make sure theta_initial gives the ground state of initial Hamiltonian.
         Since the evolution is adiabatic, the final state should be the final Hamiltonian's ground state.
-        
+
         Parameters:
-            g_initial:      initial value of g (appearing in - g sum_i X_i). 
+            g_initial:      initial value of g (appearing in - g sum_i X_i).
             T:              Total evolution time (in units with hbar=1).
-            theta_initial:  Initial angle which prepares the initial state through U(theta) 
+            theta_initial:  Initial angle which prepares the initial state through U(theta)
                             (defaults to ground state |+^{\otimes n}> of H_initial = -g sum_i X_i)
             steps:          Number of time-evolution steps.
             backend:        Optional Qiskit backend (e.g. FakeSherbrooke())
                             providing hardware calibration data for noise simulation.
                             If None, uses the custom noise model or ideal simulation.
-            n_shots:        Number of simulated trajectories, used when noise is added and 
+            n_shots:        Number of simulated trajectories, used when noise is added and
                             AerSimulator simulates trajectories
 
         Returns:
-            E:              Expected energy from final state.
-            psi:            Final state after adiabatic evolution.
+            states:         The final state (a one-element list, noiseless) or the list of
+                            per-trajectory final states (noisy).
+            E:              Expected energy from the final state(s).
         """
+
+        if steps < 1:
+            raise ValueError("steps must be a positive integer.")
+
+        if n_shots < 1:
+            raise ValueError("n_shots must be a positive integer.")
 
         if isinstance(theta_initial, str):
             if theta_initial != "GROUND STATE":
@@ -233,7 +280,7 @@ class Circuit:
 
             if theta_initial.size != self.circuit.num_parameters:
                 raise ValueError("Incorrect number of initial parameters.")
-            
+
         qc = self.circuit.assign_parameters(theta_initial)
         H_final = self.isingModel.Hamiltonian
 
@@ -257,7 +304,7 @@ class Circuit:
                 e^{t(A+B)} = e^{tA}e^{tB} + O(t^2)
             """
             evolution_first_order = PauliEvolutionGate(H, time=dt, synthesis=LieTrotter(reps=1))
-            qc.append(evolution_first_order, range(self.n_qubits)) # range(self.n_qubits): act on all qubits
+            qc.append(evolution_first_order, range(self.n_qubits))  # range(self.n_qubits): act on all qubits
 
             current_time = time.perf_counter()
             elapsed_time = current_time - start_time
@@ -270,22 +317,11 @@ class Circuit:
 
         print(f"Setting up adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: {elapsed_time:.2f} seconds")
 
-
-        if backend is not None:
-            # Gets noise from backend
-            noise_model = NoiseModel.from_backend(backend)
-            self.noise = True
-
-        elif self.noise: # Noise is provided
-
-            noise_model = NoiseModel()  # Construct new noise model and adds noise provided
-
-            for error, gates in self.noises.values():
-                noise_model.add_all_qubit_quantum_error(error, gates)
+        noise_model = self._resolve_noise_model(backend)
 
         # Final quantum state and energy
 
-        if not self.noise:
+        if noise_model is None:
             # rho = DensityMatrix.from_instruction(qc)
             state = Statevector.from_instruction(qc)
             E = float(np.real(state.expectation_value(H_final)))
@@ -296,24 +332,24 @@ class Circuit:
             return [state], E
 
         else:
-            # AerSimulator allows for simulating various trajectories 
+            # AerSimulator allows for simulating various trajectories
             simulator = AerSimulator(method="statevector", noise_model=noise_model)
 
             # Transpiles circuit to gates used by backend
             # (also makes sure the circuit does not use the same amount of qubits as backend)
             qc = transpile(qc, basis_gates=noise_model.basis_gates, optimization_level=1)
 
-            qc.save_statevector(pershot=True) # pershot=True requests a separate statevector for each simulated trajectory
+            qc.save_statevector(pershot=True)  # pershot=True requests a separate statevector for each simulated trajectory
 
-            result = simulator.run(qc, shots=n_shots).result() # Runs n_shots trajectories
-            states = result.data(0)["statevector"] # Gets all the states in |psi> = 1/n_shots sum_k=1^n_shots |psi_k><psi_k|
+            result = simulator.run(qc, shots=n_shots).result()  # Runs n_shots trajectories
+            states = result.data(0)["statevector"]  # Gets all the states in |psi> = 1/n_shots sum_k=1^n_shots |psi_k><psi_k|
 
             E = []
-            print(f"Calculating expectation value for simulated trajectories.")
+            print("Calculating expectation value for simulated trajectories.")
 
-            for i, state in enumerate(states):
+            for state in states:
                 E.append(state.expectation_value(H_final))
-                
+
             E = np.mean(E)
 
             current_time = time.perf_counter()
@@ -321,36 +357,51 @@ class Circuit:
             print(f"Finished adiabatic evolution, elapsed time: {elapsed_time:.2f} seconds")
             return states, E
 
-
     def transpile(self, basis_gates: list) -> None:
         self.circuit = transpile(self.circuit, basis_gates=basis_gates, optimization_level=1)
-        
-    def display_circuit(self) -> None:
-        self.circuit.draw(output="mpl")
-        plt.show()
 
-    def add_noise_model(self, noise_model:NoiseModel) -> None:
-        self.noise_model = noise_model 
+    def display_circuit(self, save_path=None, dpi=300) -> None:
+        """
+        Draws the ansatz.
+
+        Parameters:
+            save_path: If given, the figure is written there instead of being
+                       shown, so the call also works without a display.
+            dpi:       Resolution used when saving.
+        """
+        figure = self.circuit.draw(output="mpl")
+
+        if save_path is None:
+            plt.show()
+            return
+
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        figure.savefig(save_path, dpi=dpi, bbox_inches="tight")
+        plt.close(figure)
+
+    def add_noise_model(self, noise_model: NoiseModel) -> None:
+        self.noise_model = noise_model
         self.noise = True
 
-    def set_cx_depolarizing_prop(self, p:float, gate="cx") -> None:
+    def set_cx_depolarizing_prop(self, p: float, gate="cx") -> None:
         self.check_probability(p)
-        self.noise = True 
+        self.noise = True
         self.noises[f"deploarizing ({gate})"] = [depolarizing_error(p, 2), [gate]]
         self._doc[f"Depolarizing probability ({gate}): "] = p
 
-    def set_phase_flip_prop(self, p:float, gate="ry") -> None:
+    def set_phase_flip_prop(self, p: float, gate="ry") -> None:
         self.check_probability(p)
-        self.noise = True 
+        self.noise = True
         phase_flip = [pauli_error([("Z", p), ("I", 1-p)]), [gate]]
         self.noises[f"phase flip ({gate})"] = phase_flip
         self._doc[f"Phase flip probability ({gate}): "] = p
 
-    def set_bit_flip_prop(self, p:float, gate="ry") -> None:
+    def set_bit_flip_prop(self, p: float, gate="ry") -> None:
         self.check_probability(p)
-        self.noise = True 
-        phase_flip = [pauli_error([("X", p), ("I", 1-p)]), [gate]]
-        self.noises[f"bit flip ({gate})"] = phase_flip
+        self.noise = True
+        bit_flip = [pauli_error([("X", p), ("I", 1-p)]), [gate]]
+        self.noises[f"bit flip ({gate})"] = bit_flip
         self._doc[f"Bit flip probability ({gate}): "] = p
 
     def set_amplitude_damping_prop(self, p: float, gate="ry") -> None:
@@ -379,7 +430,6 @@ class Circuit:
 
         self.noise = True
         self.noises[f"phase damping ({gate})"] = [error, [gate]]
-
 
     def set_thermal_relaxation_prop(self, T1: float, T2: float, gate_time: float, gate="ry") -> None:
 
@@ -424,7 +474,18 @@ class Circuit:
             model._2D_Hamiltonian()
 
     def get_linalg_E0(self) -> float:
+        """
+        Exact ground-state energy of the current Ising Hamiltonian.
+
+        Small Hilbert spaces are diagonalised densely, which is deterministic
+        and avoids the convergence settings of an iterative solver; above
+        ``EXACT_DIAGONALIZATION_LIMIT`` a sparse Lanczos solve is used for the
+        algebraically smallest eigenvalue.
+        """
         H = self.isingModel.Hamiltonian.to_matrix(sparse=True)
+
+        if H.shape[0] <= EXACT_DIAGONALIZATION_LIMIT:
+            return float(np.linalg.eigvalsh(H.toarray())[0])
 
         E0 = eigsh(
             H,
@@ -436,7 +497,7 @@ class Circuit:
         return float(E0[0])
 
     @staticmethod
-    def check_probability(p:float):
+    def check_probability(p: float):
         if not 0 <= p <= 1:
             raise ValueError("p must be between 0 and 1.")
 

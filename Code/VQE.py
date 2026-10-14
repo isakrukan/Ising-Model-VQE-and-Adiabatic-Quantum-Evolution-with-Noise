@@ -1,5 +1,5 @@
-from Circuit import * 
-from IsingModel import * 
+from Circuit import *
+from IsingModel import *
 from parameters import *
 
 
@@ -7,8 +7,8 @@ if __name__ == "__main__":
 
     # VQE for Ising model with default parameters and nearest neighbor interactions
     # Parameters
-    D = 2 # Dimension 
-    N = 10 # Number of qubits (square lattice)
+    D = 2  # Dimension
+    N = 10  # Number of qubits (2 x 5 lattice)
 
     isingModel = IsingModel(D, N)
     circuit = Circuit(n_qubits=N, isingModel=isingModel)
@@ -27,12 +27,13 @@ if __name__ == "__main__":
     print(f"diff = {abs(result.fun - linalg_E0)}")
 
     # Using the parameters of a backend:
-    isingModel = IsingModel(D, N)
     circuit = Circuit(n_qubits=N, isingModel=isingModel, transpile_gates=BASIS_GATES)
 
-
     result = circuit.run_VQE(tol=1e-2, method="COBYLA", backend=FakeSherbrooke())
-    # linalg_E0 = circuit.get_linalg_E0()
+
+    # Recompute for this circuit: the previous linalg_E0 belonged to the
+    # circuit above, and would silently go stale on any change to the model.
+    linalg_E0 = circuit.get_linalg_E0()
 
     print(f"Using parameters from {BACKEND.name}:")
     print(circuit.doc)

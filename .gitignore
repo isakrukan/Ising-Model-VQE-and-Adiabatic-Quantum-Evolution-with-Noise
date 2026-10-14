@@ -236,3 +236,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# LaTeX build artifacts
+#   project.pdf (the report) and project.tex (its source) are tracked on purpose.
+project.aux
+project.out
+project.synctex.gz
+projectNotes.bbl
+projectNotes.blg
+*.fls
+*.fdb_latexmk
