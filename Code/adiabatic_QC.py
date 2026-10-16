@@ -17,7 +17,7 @@ def analyze_AQC_fidelity(
         g=[0.01, 1], 
         n_shots=30,
         save_to="DEFAULT",
-        backend=BACKEND) -> None:
+        backend=None) -> None:
 
     # Initial configuration
     isingModel = IsingModel(D, n_qubits, J=J, h=h, g=g[0])
@@ -33,7 +33,7 @@ def analyze_AQC_fidelity(
     for i, steps in enumerate(steps_range):
         for j, T in enumerate(T_range):
 
-            states, E = circuit.run_adiabatic(T=T, steps=steps, n_shots=n_shots, backend=backend)
+            states, E = circuit.run_adiabatic(T=T, steps=steps, n_shots=n_shots, backend=backend, print_progress=False)
             fidelity = []
             for state in states:
                 fidelity.append(abs(state.data[0] + state.data[-1])**2 / 2)
@@ -43,10 +43,11 @@ def analyze_AQC_fidelity(
             counter += 1
             current_time = time.perf_counter()
             elapsed_time = current_time - start_time
-            print(f"{counter/res**2 * 100:.2f}% complete, time elapsed: {elapsed_time:.2f} seconds")
+            print(f"{counter/res**2 * 100:.2f}% complete, time elapsed: {elapsed_time:.2f} seconds", end="\r", flush=True)
 
     current_time = time.perf_counter()
     elapsed_time = current_time - start_time
+    print(" " * 100, end="\r")
     print(f"Fidelity analysis done, time elapses: {elapsed_time:.2f} seconds")
 
     if save_to == "DEFAULT":
@@ -68,51 +69,66 @@ def analyze_AQC_fidelity(
         steps_range=steps_range,
         fidelities=fidelities)
 
+def plot_fidelities(name:str):
 
+    data1 = np.load(f"Data/{name}_backend.npz")
+    data2 = np.load(f"Data/{name}_.npz")
+
+    fig, axs = plt.subplots(1, 2, figsize=(12, 5), sharex=True, sharey=True)
+
+    T_range1 = data1["T_range"]; steps_range1 = data1["steps_range"]
+    fidelities1 = data1["fidelities"]
+    im1 = axs[0].imshow(
+        fidelities1,
+        origin="lower",
+        extent=[T_range1[0], T_range1[-1], steps_range1[0], steps_range1[-1]],
+        aspect="auto",
+        cmap="inferno",
+        interpolation="nearest",
+        vmin=0, vmax=1
+    )
+
+    T_range2 = data2["T_range"]; steps_range2 = data2["steps_range"]
+    fidelities2 = data2["fidelities"]
+    im2 = axs[1].imshow(
+        fidelities2,
+        origin="lower",
+        extent=[T_range2[0], T_range2[-1], steps_range2[0], steps_range2[-1]],
+        aspect="auto",
+        cmap="inferno",
+        interpolation="nearest",
+        vmin=0, vmax=1
+    )
+
+    axs[0].set_title("With backend noise")
+    axs[1].set_title("Without noise")
+
+    for ax in axs:
+        ax.set_xlabel("Evolution time T")
+
+    axs[0].set_ylabel("Trotter steps")
+
+    fig.colorbar(im2, ax=axs, label="GHZ fidelity", shrink=0.85)
+
+    folder = Path("Figs")
+    folder.mkdir(parents=True, exist_ok=True)
+
+    filename = f"{name}.pdf"
+    filepath = folder / filename
+    plt.savefig(filepath)
+    plt.show()
 
 if __name__ == "__main__":
 
-    r"""
-    Aiming at preparing a known final ground state, namely, the GHZ state,
-        
-        |GHZ_n> = 1/sqrt{2}(|0^{\otimes n}> + |0^{\otimes n}>),
+
+    name1 = "fidelities_D2_N4_J1_h0_g[0.01, 3]_T50.0-1300.0_steps50-1300_res25"
+    name2 = "fidelities_D2_N4_J1_h0_g[0.01, 3]_T1.0-200.0_steps1-200_res20"
+    name3 = "fidelities_D2_N4_J1_h0_g[0.01, 3]_T1.0-100.0_steps1-100_res100"
+
+    plot_fidelities(name1)
+    plot_fidelities(name2)
+    plot_fidelities(name3)
+
     
-    for H(J=1, h=0, g<J)
-    """
-    D = 2; n_qubits = 4
 
-    isingModel = IsingModel(D, n_qubits, J=1, h=0, g=0.01)
-
-    circuit = Circuit(n_qubits, isingModel)
-
-    # states, E = circuit.run_adiabatic(steps=2000)
-    states, E = circuit.run_adiabatic(steps=2000, backend=FakeSherbrooke())
-
-    # # May take a long time
-    # ghz = np.zeros(2**circuit.n_qubits, dtype=complex)
-    # ghz[0] = 1 / np.sqrt(2)
-    # ghz[-1] = 1 / np.sqrt(2)
-
-    # fidelity = np.real(np.vdot(ghz, np.matmul(rho.data, ghz)))
-
-    # Instead, since ghz has only two nonzero entries:
-    fidelity = []
-    for state in states:
-        fidelity.append(abs(state.data[0] + state.data[-1])**2 / 2)
-
-    fidelity = np.mean(fidelity)
-
-    if len(states) == 1:
-        print(f"Done running adiabatic evolution without noise")
-
-    else:
-        print(f"Done running adiabatic evolution with noise")
-
-    print(f"GHZ fidelity: {fidelity}")
-    print(f"E_final: {E}")
-
-    # E0 = circuit.get_linalg_E0()
-
-    # print(f"Exact ground-state energy: {E0}")
-    # print(f"error: {abs(E-E0)}")
 

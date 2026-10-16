@@ -195,7 +195,8 @@ class Circuit:
             theta_initial="GROUND STATE", 
             steps=2000, 
             backend=None, 
-            n_shots=50
+            n_shots=50,
+            print_progress=True
             ) -> tuple[list[DensityMatrix], float]:
         
         r"""
@@ -215,6 +216,7 @@ class Circuit:
                             If None, uses the custom noise model or ideal simulation.
             n_shots:        Number of simulated trajectories, used when noise is added and 
                             AerSimulator simulates trajectories
+            print_progress: If True, prints progress along the way
 
         Returns:
             E:              Expected energy from final state.
@@ -245,8 +247,9 @@ class Circuit:
         # Adiabatic evolution
         start_time = time.perf_counter()
         counter = 0
-        print(f"Running adiabatic evolution, dt = {dt}")
-        print(f"Setting up adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: 0 seconds", end="\r")
+        if print_progress:
+            print(f"Running adiabatic evolution, dt = {dt}")
+            print(f"Setting up adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: 0 seconds", end="\r")
         for i in range(steps):
             s = (i + 0.5) / steps
 
@@ -263,12 +266,14 @@ class Circuit:
             elapsed_time = current_time - start_time
             counter += 1
 
-            print(f"Setting up adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: {elapsed_time:.2f} seconds", end="\r")
+            if print_progress:
+                print(f"Setting up adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: {elapsed_time:.2f} seconds", end="\r")
 
         current_time = time.perf_counter()
         elapsed_time = current_time - start_time
 
-        print(f"Setting up adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: {elapsed_time:.2f} seconds")
+        if print_progress:
+            print(f"Setting up adiabatic evolution, {counter/steps*100:.2f}% complete, elapsed time: {elapsed_time:.2f} seconds")
 
 
         if backend is not None:
@@ -292,7 +297,10 @@ class Circuit:
 
             current_time = time.perf_counter()
             elapsed_time = current_time - start_time
-            print(f"Finished adiabatic evolution, elapsed time: {elapsed_time:.2f} seconds")
+
+            if print_progress:
+                print(f"Finished adiabatic evolution, elapsed time: {elapsed_time:.2f} seconds")
+
             return [state], E
 
         else:
@@ -309,7 +317,9 @@ class Circuit:
             states = result.data(0)["statevector"] # Gets all the states in |psi> = 1/n_shots sum_k=1^n_shots |psi_k><psi_k|
 
             E = []
-            print(f"Calculating expectation value for simulated trajectories.")
+
+            if print_progress:
+                print(f"Calculating expectation value for simulated trajectories.")
 
             for i, state in enumerate(states):
                 E.append(state.expectation_value(H_final))
@@ -318,7 +328,10 @@ class Circuit:
 
             current_time = time.perf_counter()
             elapsed_time = current_time - start_time
-            print(f"Finished adiabatic evolution, elapsed time: {elapsed_time:.2f} seconds")
+
+            if print_progress:
+                print(f"Finished adiabatic evolution, elapsed time: {elapsed_time:.2f} seconds")
+
             return states, E
 
 
