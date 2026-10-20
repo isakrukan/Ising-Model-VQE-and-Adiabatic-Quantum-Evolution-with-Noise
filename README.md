@@ -1,6 +1,6 @@
 # Ising Model — VQE and adiabatic evolution using Qiskit
 
-A small project exploring the Variational Quantum Eigensolver (VQE) for spin-½ Ising systems and adiabatic quantum computing. Each spin site is represented by **one qubit**. The aim is to study ground-state energies, investigate the effects of noise, and compare and validate the VQE versus the adiabatic evolution implementation.
+A small project exploring the Variational Quantum Eigensolver (VQE) for spin-½ Ising systems and adiabatic quantum computing. Each spin site is represented by **one qubit**. The aim is to study ground-state energies, investigate the effects of noise, and compare and validate the VQE versus the adiabatic evolution implementation. See [project.pdf](https://github.com/isakrukan/Ising-Model-VQE-and-Adiabatic-Quantum-Evolution-with-Noise/blob/main/project.pdf) for the full project report.
 
 ## Classical computation
 All computation is done classically, either using [EstimatorV2](https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/estimator-v2) for estimating ground state, or [AerSimulator](https://qiskit.github.io/qiskit-aer/stubs/qiskit_aer.AerSimulator.html) for when the final state is saved (useful when doing adiabatic quantum computing).
