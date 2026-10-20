@@ -72,19 +72,19 @@ In addition to the possibility of custom-defined errors, the properties of a bac
 
 Three characteristic times describe decoherence in quantum systems:
 
-- **$T_1$ (energy relaxation time):** Characterizes the decay from the excited state $\ket{1}$ to the ground state $\ket{0}$:
+**$T_1$ (energy relaxation time):** Characterizes the decay from the excited state $\ket{1}$ to the ground state $\ket{0}$:
 
-  $$
-  P_1(t)=P_1(0)e^{-t/T_1}.
-  $$
+$$
+P_1(t)=P_1(0)e^{-t/T_1}.
+$$
 
-- **$T_2$ (coherence time):** Characterizes the decay of off-diagonal density-matrix elements, including contributions from energy relaxation and pure dephasing:
+**$T_2$ (coherence time):** Characterizes the decay of off-diagonal density-matrix elements, including contributions from energy relaxation and pure dephasing:
 
-  $$
-  \rho_{01}(t)=\rho_{01}(0)e^{-t/T_2}.
-  $$
+$$
+\rho_{01}(t)=\rho_{01}(0)e^{-t/T_2}.
+$$
 
-- **$T_\phi$ (pure dephasing time):** Characterizes the loss of phase coherence without energy relaxation.
+**$T_\phi$ (pure dephasing time):** Characterizes the loss of phase coherence without energy relaxation.
 
 Under a standard Markovian noise model, these times are related by
 
