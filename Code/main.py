@@ -20,7 +20,10 @@ def setup_args(args_dict: dict, arg: list, i: int):
             if value == "BACKEND":
                 args_dict[key] = BACKEND
             else:
-                args_dict[key] = ast.literal_eval(value)
+                try:
+                    args_dict[key] = ast.literal_eval(value)
+                except SyntaxError: # Probably a "_" in a filename
+                    args_dict[key] = str(value)
 
         j += 1
 
@@ -62,6 +65,10 @@ compare_AQC_vs_VQE_args = {
     "backend": None
 }
 
+find_best_values_with_noise_args = {
+    "name": None
+}
+
 if __name__ == "__main__":
 
     arg = sys.argv[1:]
@@ -86,6 +93,13 @@ if __name__ == "__main__":
 
             kwargs = {k: v for k, v in compare_AQC_vs_VQE_args.items() if v is not None}
             compare_AQC_vs_VQE(**kwargs)
+
+        elif arg[i] == "find_best_values_with_noise":
+            i = setup_args(find_best_values_with_noise_args, arg, i)
+
+            kwargs = {k: v for k, v in find_best_values_with_noise_args.items() if v is not None}
+            print(kwargs)
+            find_best_values_with_noise(**kwargs)
 
         i += 1
 

@@ -69,7 +69,9 @@ def analyze_AQC_fidelity(
         steps_range=steps_range,
         fidelities=fidelities)
 
-def plot_fidelities(name:str):
+    plot_fidelities(filename[0:-4], show=False)
+
+def plot_fidelities(name:str, show=True):
 
     data1 = np.load(f"Data/{name}_backend.npz")
     data2 = np.load(f"Data/{name}_.npz")
@@ -116,18 +118,98 @@ def plot_fidelities(name:str):
     filename = f"{name}.pdf"
     filepath = folder / filename
     plt.savefig(filepath)
+
+    if show:
+        plt.show()
+    else:
+        plt.close()
+
+
+def find_best_values_with_noise(name):
+    data = np.load(f"Data/{name}_backend.npz")
+    T_range = data["T_range"]
+    steps_range = data["steps_range"]
+    fidelities = data["fidelities"]
+
+    # Maximum fidelity
+    index = np.unravel_index(np.argmax(fidelities), fidelities.shape)
+
+    print("Maximum fidelity:")
+    print(f"T = {T_range[index[1]]}, M = {steps_range[index[0]]}, F = {fidelities[index]}")
+
+    # All fidelities >= 0.9
+    print()
+    print("Fidelities >= 0.9")
+    indices_steps, indices_T = np.where(fidelities >= 0.9)
+
+    T_values = T_range[indices_T]
+    steps_values = steps_range[indices_steps]
+
+    sort_indices = np.lexsort((steps_values, T_values))
+
+    print("T values:", T_values[sort_indices])
+    print("Steps values:", steps_values[sort_indices])
+    print("Fidelities:", fidelities[indices_steps, indices_T][sort_indices])
+
+    
+    
+    # Find the region where fidelity >= 0.9
+    indices_steps, indices_T = np.where(fidelities >= 0.9)
+
+    if len(indices_T) == 0:
+        print("No fidelities >= 0.9")
+        return
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    im = ax.imshow(
+        fidelities,
+        origin="lower",
+        extent=[T_range[0], T_range[-1], steps_range[0], steps_range[-1]],
+        aspect="auto",
+        cmap="inferno",
+        interpolation="nearest",
+        vmin=0, vmax=1
+    )
+
+    # Zoom to the region containing all fidelities >= 0.9
+    ax.set_xlim(T_range[indices_T.min()], T_range[indices_T.max()])
+    ax.set_ylim(steps_range[indices_steps.min()], steps_range[indices_steps.max()])
+
+    ax.set_xlabel("Evolution time T")
+    ax.set_ylabel("Trotter steps M")
+    ax.set_title("GHZ fidelity with backend noise")
+
+    fig.colorbar(im, ax=ax, label="GHZ fidelity")
+
+    plt.tight_layout()
     plt.show()
 
-if __name__ == "__main__":
 
+
+
+
+if __name__ == "__main__":
+    
 
     name1 = "fidelities_D2_N4_J1_h0_g[0.01, 3]_T50.0-1300.0_steps50-1300_res25"
     name2 = "fidelities_D2_N4_J1_h0_g[0.01, 3]_T1.0-200.0_steps1-200_res20"
     name3 = "fidelities_D2_N4_J1_h0_g[0.01, 3]_T1.0-100.0_steps1-100_res100"
+    name4 = "fidelities_D2_N4_J1_h0_g[0.01, 3]_T1.0-1000.0_steps1-1000_res20"
 
+    find_best_values_with_noise(name3)
+    
     plot_fidelities(name1)
     plot_fidelities(name2)
     plot_fidelities(name3)
+    plot_fidelities(name4)
+
+    """
+    4.6 = 4.8a + b, 40.1 = 34.4a + b 
+    a = (4.6-b)/4.8 = (40.1 - b)/34.4
+    b = -1.15675
+    a = 1.19932
+    """
 
     
 

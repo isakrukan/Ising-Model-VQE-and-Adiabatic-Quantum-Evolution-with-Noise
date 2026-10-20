@@ -2,9 +2,10 @@ from Circuit import *
 from IsingModel import * 
 
 import numpy as np
+import matplotlib.pyplot as plt
 from pathlib import Path
 
-def analyze_Ry_phase_vs_CX_depolarizing_error(N:int, p_ry:list, p_cx:list, D=2, n_qubits=4, J=1, h=0, g=1, save_to="DEFAULT") -> None:
+def analyze_Ry_phase_vs_CX_depolarizing_error(N:int, p_ry:list, p_cx:list, D=2, n_qubits=4, J=1, h=0, g=1) -> None:
 
     p_ry = np.linspace(p_ry[0], p_ry[1], N)
     p_cx = np.linspace(p_cx[0], p_cx[1], N)
@@ -36,13 +37,14 @@ def analyze_Ry_phase_vs_CX_depolarizing_error(N:int, p_ry:list, p_cx:list, D=2, 
 
     print(f"Running analyze_Ry_phase_vs_CX_depolarizing_error, {counter/N**2*100:.2f}% complete")
     # Default output directory
-    if save_to == "DEFAULT":
-        save_to = "Data"
+    save_to_data = "Data"
+    save_to_figs = "Figs"
 
-    folder = Path(save_to)
+    folder = Path(save_to_data)
     folder.mkdir(parents=True, exist_ok=True)
 
-    filename = f"Ry_phase_vs_CX_depolarizing_D{D}_N{n_qubits}_J{J}_h{h}_g{g}.npz"
+    name = f"Ry_phase_vs_CX_depolarizing_D{D}_N{n_qubits}_J{J}_h{h}_g{g}"
+    filename = f"{name}.npz"
     filepath = folder / filename
 
     np.savez_compressed(
@@ -55,6 +57,33 @@ def analyze_Ry_phase_vs_CX_depolarizing_error(N:int, p_ry:list, p_cx:list, D=2, 
 
     print(f"Results saved to {filepath}")
 
+    plt.figure(figsize=(8, 6))
+
+    im = plt.imshow(
+        error,
+        origin="lower",
+        extent=[p_cx[0], p_cx[-1], p_ry[0], p_ry[-1]],
+        aspect="auto",
+        cmap="inferno",
+        interpolation="nearest"
+    )
+
+    plt.colorbar(im, label=r"Energy error $|E_{\mathrm{VQE}}-E_0|$")
+
+    plt.xlabel("CX depolarizing probability")
+    plt.ylabel("RY phase-flip probability")
+    plt.title("VQE ground-state energy error")
+    plt.tight_layout()
+
+
+    folder = Path(save_to_figs)
+    folder.mkdir(parents=True, exist_ok=True)
+
+    filename = f"{name}.pdf"
+    filepath = folder / filename
+    plt.savefig(filepath)
+    plt.close()
+    # plt.show()
 
     
 
@@ -87,6 +116,5 @@ if __name__ == "__main__":
 
     plt.tight_layout()
 
-    # Save figure alongside the data
-    # plt.savefig(filename.with_suffix(".png"), dpi=300)
+    # plt.savefig(filename.with_suffix(".pdf"))
     plt.show()

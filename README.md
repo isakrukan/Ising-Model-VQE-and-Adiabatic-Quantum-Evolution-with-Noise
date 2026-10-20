@@ -2,29 +2,6 @@
 
 A small project exploring the Variational Quantum Eigensolver (VQE) for spin-½ Ising systems and adiabatic quantum computing. Each spin site is represented by **one qubit**. The aim is to study ground-state energies, investigate the effects of noise, and compare and validate the VQE versus the adiabatic evolution implementation.
 
-The Hamiltonian is given by
-
-$$
-H = -\sum_{i\lt j} J_{ij} Z_i Z_j - \sum_i h_i Z_i - \sum_i g_i X_i,
-$$
-
-where $J_{ij}$ describes the spin-spin interactions, while $h_i$ and $g_i$ represent the longitudinal and transverse magnetic fields, respectively.
-
-The initial state $\ket{0}^{\otimes n}$ is sent through the parameterized quantum circuit ([Fig. 1](#fig-1)), which applies $U(\vec{\theta})$ to prepare the trial state
-
-$$
-\ket{\psi(\vec{\theta})}=U(\vec{\theta})\ket{0}^{\otimes n}.
-$$
-
-<a id="fig-1"></a>
-<p align="center">
-  <img src="Figs/circuit.png" width="650" alt="Quantum circuit">
-  <br>
-  <em>Figure 1: State preparation circuit for four qubits.</em>
-</p>
-
-For example, $\vec{\theta}=\vec{0}$ gives $\ket{\psi(\vec{\theta})}=\ket{0}^{\otimes n}$ and $\vec{\theta} = (\pi/2, ..., \pi/2, 0, ..., 0)$, where the there are $n$ angles equal $\pi/2$, and $3n$ angles equal $0$ ($\theta$ has $4n$ parameters), gives $\ket{\psi(\vec{\theta})}=\ket{+}^{\otimes n}$. 
-
 ## Classical computation
 All computation is done classically, either using [EstimatorV2](https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/estimator-v2) for estimating ground state, or [AerSimulator](https://qiskit.github.io/qiskit-aer/stubs/qiskit_aer.AerSimulator.html) for when the final state is saved (useful when doing adiabatic quantum computing).
 
@@ -196,6 +173,7 @@ These estimates exclude simulator overhead and density-matrix storage.
 - [FakeSherbrooke](https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/fake-provider-fake-sherbrooke)
 - [AerSimulator](https://qiskit.github.io/qiskit-aer/stubs/qiskit_aer.AerSimulator.html)
 - [EstimatorV2](https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/estimator-v2)
+- [LieTrotter](https://quantum.cloud.ibm.com/docs/en/api/qiskit/qiskit.synthesis.LieTrotter)
 - [Introduction to transpilation (IBM)](https://quantum.cloud.ibm.com/docs/en/guides/transpile)
 - [Scipy.COBYLA](https://docs.scipy.org/doc/scipy/reference/optimize.minimize-cobyla.html)
 - [Scipy.trust-constr](https://docs.scipy.org/doc/scipy/reference/optimize.minimize-trustconstr.html)

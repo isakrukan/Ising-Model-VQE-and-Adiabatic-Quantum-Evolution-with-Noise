@@ -334,6 +334,44 @@ class Circuit:
 
             return states, E
 
+    
+    def get_VQE_state(self, theta, backend=None):
+        """
+        Returns the final VQE state for a given set of parameters.
+        Uses a statevector without noise and a density matrix
+        when noise is included.
+        """
+
+        qc = self.circuit.assign_parameters(theta)
+
+        if backend is None:
+            backend = self.backend
+
+        if backend is not None:
+            noise_model = NoiseModel.from_backend(backend)
+
+        elif self.noise_model is not None or self.noises:
+            if self.noise_model is not None:
+                noise_model = deepcopy(self.noise_model)
+            else:
+                noise_model = NoiseModel()
+
+            for error, gates in self.noises.values():
+                noise_model.add_all_qubit_quantum_error(error, gates)
+
+        else:
+            return Statevector.from_instruction(qc)
+
+        qc = transpile(qc, basis_gates=noise_model.basis_gates, optimization_level=1)
+
+        qc.save_density_matrix()
+
+        simulator = AerSimulator(method="density_matrix", noise_model=noise_model)
+
+        state = simulator.run(qc).result().data(0)["density_matrix"]
+
+        return state
+
 
     def transpile(self, basis_gates: list) -> None:
         self.circuit = transpile(self.circuit, basis_gates=basis_gates, optimization_level=1)
